@@ -48,10 +48,10 @@ class MyViewModel {
 
 There might be times when you want to return different instances of an object depending on the circumstance that it's being used.
 
-Blade currently only supports providing a qualifier type when registering a type, and you can use that same qualifier type when resolving, 
+Blade currently supports this by you providing a qualifier type when registering a type, and you can use that same qualifier type when resolving, 
 either using the `Inject`/`LazyInject` property wrappers, or when using `Resolver` directly.
 
-The first step is to declare a new type that conforms to Qualifier. This could be a `struct`, a `class`, or an `enum`. I recommend using an `enum`, since 
+The first step is to declare a new type that conforms to `Qualifier`. This could be a `struct`, a `class`, or an `enum`. I recommend using an `enum`, since 
 we're only use the type, not an instance of the type, and `enum`s don't have initializers:
 
 ```swift
