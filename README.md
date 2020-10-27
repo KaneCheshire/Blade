@@ -14,8 +14,7 @@ A typical place to do this is in the AppDelegate:
 
 ```swift
 func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-	// Since `Resolver.register` also supports autoclosures, you can also write this simply as `Resolver.register(MyInjectedType())`
-	Resolver.register { MyInjectedType() } 
+	Resolver.register { MyInjectedType() } // Since `Resolver.register` also supports autoclosures, you can also write this simply as `Resolver.register(MyInjectedType())`
 	return true
 }
 ```
@@ -39,7 +38,7 @@ You can also use Blade to inject into initializers, by using `Resolver` directly
 ```swift
 class MyViewModel {
 
-	init(injectedArgument: MyInjectedType = Resolver.resolve() {
+	init(injectedArgument: MyInjectedType = Resolver.resolve()) {
 		// Do something with injectedArgument
 	}
 }
@@ -83,7 +82,7 @@ And you can also specify the qualifier if resolving manually:
 ```swift
 class MyViewModel {
 
-	init(injectedArgument: MyInjectedType = Resolver.resolve(qualifiedBy: MyQualifier.self) {
+	init(injectedArgument: MyInjectedType = Resolver.resolve(qualifiedBy: MyQualifier.self)) {
 		// Do something with injectedArgument
 	}
 }
