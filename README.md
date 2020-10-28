@@ -4,7 +4,7 @@ A super simple dependency injection library written in Swift.
 
 ## QuickStart
 
-There are only two main steps to using Blade bfeore you can start injecting.
+There are only two main steps to using Blade before you can start injecting.
 
 ### 1: Registering types
 

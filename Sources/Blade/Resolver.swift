@@ -1,7 +1,5 @@
 import Foundation
 
-import Foundation
-
 /// The `Resolver` is what provides injected instances of types.
 /// Resolver works with the `Inject` and LazyInject property wrappers, or you can use it directly to provide values in initializers.
 /// Before the Resolver knows how to provide instances of types, you need to `register` a provider.
