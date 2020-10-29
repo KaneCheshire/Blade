@@ -20,6 +20,7 @@ public struct Inject<T> {
 		wrappedValue = try! Resolver.resolve(qualifiedBy: qualifier)
 	}
 
+	/// Creates a property wrapper, using the default Resolver with a specified scope and optional qualifier.
 	public init(_ scope: Scope.Type, _ qualifier: Qualifier.Type? = nil) where T: AnyObject {
 		wrappedValue = try! Resolver.resolve(scopedTo: scope, qualifiedBy: qualifier)
 	}

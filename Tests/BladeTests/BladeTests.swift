@@ -133,8 +133,13 @@ final class BladeTests: XCTestCase {
 	}
 
 	func test_scopes() throws {
+		var wasFirstProviderCalled = false
+		Resolver.register(MockObj.self, scopedTo: MockScopeA.self) {
+			wasFirstProviderCalled = true
+			return MockObj()
+		}
 		var resolveCount = 0
-		Resolver.register(scopedTo: MockScopeA.self) { () -> MockObj in
+		Resolver.register(MockObj.self, scopedTo: MockScopeA.self) {
 			resolveCount += 1
 			return MockObj()
 		}
@@ -153,5 +158,6 @@ final class BladeTests: XCTestCase {
 		XCTAssertThrowsError(try Resolver.resolve(scopedTo: MockScopeB.self) as MockObj) { error in
 			XCTAssertEqual(error as? Resolver.Error, .missingProvider)
 		}
+		XCTAssertFalse(wasFirstProviderCalled)
 	}
 }
