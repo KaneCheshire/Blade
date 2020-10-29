@@ -22,6 +22,10 @@ public struct LazyInject<T> {
 		lazyResolver = { try! Resolver.resolve(qualifiedBy: qualifier) }
 	}
 
+	public init(_ scope: Scope.Type, _ qualifier: Qualifier.Type? = nil) where T: AnyObject {
+		lazyResolver = { try! Resolver.resolve(scopedTo: scope, qualifiedBy: qualifier) }
+	}
+
 	/// Creates a property wrapper, where you're responsible for providing a value when the closure is called
 	/// by the property wrapper.
 	/// Since this is a LazyInject, this closure will only be called when you first access the value of the wrapped property.

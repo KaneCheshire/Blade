@@ -20,6 +20,10 @@ public struct Inject<T> {
 		wrappedValue = try! Resolver.resolve(qualifiedBy: qualifier)
 	}
 
+	public init(_ scope: Scope.Type, _ qualifier: Qualifier.Type? = nil) where T: AnyObject {
+		wrappedValue = try! Resolver.resolve(scopedTo: scope, qualifiedBy: qualifier)
+	}
+
 	/// Creates a property wrapper, where you're responsible for providing a value when the closure is called
 	/// by the property wrapper.
 	/// Since this is not a LazyInject, this closure will be called immediately when creating this property wrapper.

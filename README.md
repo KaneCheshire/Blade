@@ -2,7 +2,14 @@
 
 A super simple dependency injection library written in Swift. 
 
-## QuickStart
+- [Quick start](#quick-start)
+	- [Registering types](#registering-types)
+	- [Declaring injected properties](#declaring-injected-properties)
+- [Scopes](#scopes)
+- [Qualifiers](#qualifiers)
+- [Good to know](#good-to-know)
+
+## Quick start
 
 There are only two main steps to using Blade before you can start injecting.
 
@@ -14,7 +21,7 @@ A typical place to do this is in the AppDelegate:
 
 ```swift
 func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-	Resolver.register { MyInjectedType() } // Since `Resolver.register` also supports autoclosures, you can also write this simply as `Resolver.register(MyInjectedType())`
+	Resolver.register { MyInjectedType() }
 	return true
 }
 ```
@@ -43,6 +50,70 @@ class MyViewModel {
 	}
 }
 ```
+## Scopes
+
+By default, Blade will call the provider you register every time you inject or call `Resolver.resolve()`, but you can change this using a `Scope`.
+
+Scoped objects are only created whenever first resolved or injected, and persist until every object that holds a reference to the scoped object are destroyed.
+
+As an example, let's say you had a User object and you want it to be shared across a registration flow. You could inject it using a scope in every controller.
+
+The first step is to define a new `Scope`, which (similar to a [`Qualifier`](#qualifier)) you do by defining a type that conforms to `Scope`:
+
+```swift
+
+enum RegistrationFlow: Scope {} 
+
+```
+
+Once defined, you register a provider using the scope:
+
+```swift
+
+Resolver.register(scopedTo: RegistrationFlow.self) { User() }
+
+```
+
+And once registered, you can then start injecting into whatever needs a shared `User` object for the flow:
+
+```swift
+
+class UsernameRegistrationController: UIViewController {
+
+	@Inject(RegistrationFlow.self)
+	private var user: User
+}
+
+class PasswordRegistrationController: UIViewController {
+
+	@Inject(RegistrationFlow.self)
+	private var user: User // The same instance of User as injected into `UsernameRegistrationController`
+}
+
+```
+So long as `PasswordRegistrationController` is created before  `UsernameRegistrationController` is destroyed, the `User` instance
+in both controllers will be the same, ready for you to use at the end of the flow.
+
+> *NOTE*: You can only use a Scope with a class types, not value types. So in this case, `User` is a `class`, not a `struct`.
+
+You can also manually resolve objects for scopes:
+
+```swift
+
+class RegistrationManager {
+
+	init(user: User = Resolver.resolve(scopedTo: RegistrationFlow.self)) {
+		// Do something with user
+	}
+}
+
+```
+It's important to understand that objects in a scope are only kept until nothing holds a reference to it. If all objects holding a reference to a scoped
+object are destroyed, the shared injected/resolved object is also destroyed. The next time an object tries to inject an object with the same scope, a new
+instance of the scoped object is created.
+
+The exception to this rule is if you keep a reference elsewhere to the object that you provide when registering a provider for the scope, in that case Blade will
+not know that a new instance is required so will keep returning the same object until nothing holds a reference to it any more.
 
 ## Qualifiers
 
@@ -90,14 +161,14 @@ class MyViewModel {
 
 ## Good to know
 
-Blade is very new, and very simple. 
+Blade is very new, and very simple.
 
 Compared to alternatives like [Cleanse](https://github.com/square/Cleanse) for Swift and Dagger for Java, Blade is simple, easy to learn and easy to use, 
 but as a result may not be suitable for large or complex projects.
 
 I'm really keen for you to use it, and let me know what problems you have or whether you think the API needs to change, or if new features are needed.
 
-Blade has no notion of modules or scopes (although it does have [Qualifiers](#qualifiers)). If this impacts you, I'd love to learn more about the use case where
+Blade has no notion of modules or graphs (although it does have [Scopes](#scopes)) and [Qualifiers](#qualifiers)). If this impacts you, I'd love to learn more about the use case where
 this is required over what Blade currently offers, and whether it's something that Blade should include or whether Blade should commit to being simple and
 only used in simple projects.
 

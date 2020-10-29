@@ -6,6 +6,8 @@ final class BladeTests: XCTestCase {
 	class MockObj {}
 	enum MockQualifierA: Qualifier {}
 	enum MockQualifierB: Qualifier {}
+	enum MockScopeA: Scope {}
+	enum MockScopeB: Scope {}
 
 	override func setUp() {
 		super.setUp()
@@ -16,7 +18,7 @@ final class BladeTests: XCTestCase {
 		XCTAssertThrowsError(try Resolver.resolve() as MockObj) { error in
 			XCTAssertEqual(error as? Resolver.Error, .missingProvider)
 		}
-		Resolver.register(MockObj())
+		Resolver.register { MockObj() }
 		XCTAssertNoThrow(try Resolver.resolve() as MockObj)
 		XCTAssertNoThrow(try Resolver.resolve() as MockObj) // Ensures resolving doesn't clear
 		Resolver.clearAllRegistrations()
@@ -62,9 +64,9 @@ final class BladeTests: XCTestCase {
 			return _mockD
 		}
 
-		Resolver.register(mockA)
+		Resolver.register { mockA }
 		let a = Inject<MockObj>()
-		Resolver.register(qualifiedBy: MockQualifierA.self, mockB)
+		Resolver.register(qualifiedBy: MockQualifierA.self) { mockB }
 		let b = Inject<MockObj>(MockQualifierA.self)
 		var hasCBeenResolved = false
 		let c = Inject<MockObj> {
@@ -101,9 +103,12 @@ final class BladeTests: XCTestCase {
 		}
 		var d = LazyInject<MockObj>(mockD)
 
-		Resolver.register(mockA) // Can be registered after creating since it's lazily resolved
-		Resolver.register(qualifiedBy: MockQualifierA.self, mockB)
+
+		Resolver.register { mockA } // Can be registered after creating since it's lazily resolved
 		XCTAssert(a.wrappedValue === mockA)
+		Resolver.register(qualifiedBy: MockQualifierA.self) {
+			mockB
+		}
 		XCTAssert(b.wrappedValue === mockB)
 		XCTAssertFalse(hasCBeenResolved)
 		XCTAssert(c.wrappedValue === mockC)
@@ -111,5 +116,42 @@ final class BladeTests: XCTestCase {
 		XCTAssertFalse(hasDBeenResolved)
 		XCTAssert(d.wrappedValue === _mockD)
 		XCTAssertTrue(hasDBeenResolved)
+
+		let mockE = MockObj()
+		var eResolveCallCount = 0
+		Resolver.register(MockObj.self, scopedTo: MockScopeA.self) {
+			eResolveCallCount += 1
+			return mockE
+		}
+		var lazyInjectE = LazyInject<MockObj>(MockScopeA.self)
+		XCTAssertEqual(eResolveCallCount, 0)
+		XCTAssert(lazyInjectE.wrappedValue === mockE)
+		XCTAssertEqual(eResolveCallCount, 1)
+		var lazyInjectD = LazyInject<MockObj>(MockScopeA.self)
+		XCTAssert(lazyInjectD.wrappedValue === lazyInjectE.wrappedValue)
+		XCTAssertEqual(eResolveCallCount, 1)
+	}
+
+	func test_scopes() throws {
+		var resolveCount = 0
+		Resolver.register(scopedTo: MockScopeA.self) { () -> MockObj in
+			resolveCount += 1
+			return MockObj()
+		}
+		XCTAssertEqual(resolveCount, 0)
+		var resolvedA: MockObj? = try Resolver.resolve(scopedTo: MockScopeA.self)
+		XCTAssertEqual(resolveCount, 1)
+		var resolvedB: MockObj? = try Resolver.resolve(scopedTo: MockScopeA.self)
+		XCTAssertEqual(resolveCount, 1)
+		XCTAssertNotNil(resolvedA)
+		XCTAssertNotNil(resolvedB)
+		XCTAssert(resolvedA === resolvedB)
+		resolvedA = nil
+		resolvedB = nil
+		let _: MockObj = try Resolver.resolve(scopedTo: MockScopeA.self)
+		XCTAssertEqual(resolveCount, 2)
+		XCTAssertThrowsError(try Resolver.resolve(scopedTo: MockScopeB.self) as MockObj) { error in
+			XCTAssertEqual(error as? Resolver.Error, .missingProvider)
+		}
 	}
 }

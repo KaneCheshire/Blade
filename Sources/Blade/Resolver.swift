@@ -12,24 +12,29 @@ public class Resolver {
 	}
 
 	private static var providers: [Key: () -> Any] = [:]
+	private static var scopedEntries: [Key: ScopedEntry] = [:]
 
 	/// Registers a provider to provide an instance of the given type, optionally restricting to a specific qualifier.
 	/// - Parameters:
 	///   - qualifier: An optional qualifier which will ensure the provider only gets used when the corresponding qualifier is used.
 	///   - provider: The provider to provide an instance of the type. You could return a new instance each time, or a cached/shared instance.
 	public static func register<T>(
+		_ type: T.Type = T.self,
 		qualifiedBy qualifier: Qualifier.Type? = nil,
 		_ provider: @escaping () -> T
 	) {
-		let key = Key(type: T.self, qualifier: qualifier)
+		let key = Key(type: T.self, scope: nil, qualifier: qualifier)
 		providers[key] = provider
 	}
 
-	public static func register<T>(
+	public static func register<T: AnyObject>(
+		_ type: T.Type = T.self,
+		scopedTo scope: Scope.Type,
 		qualifiedBy qualifier: Qualifier.Type? = nil,
-		_ provider: @escaping @autoclosure () -> T
+		_ provider: @escaping () -> T
 	) {
-		register(qualifiedBy: qualifier, provider)
+		let key = Key(type: type, scope: scope, qualifier: qualifier)
+		scopedEntries[key] = ScopedEntry(resolver: provider)
 	}
 
 	/// Resolves the given type, throwing an error if a provider cannot be found for the type and qualifier (if a qualifier is provided).
@@ -38,15 +43,26 @@ public class Resolver {
 	public static func resolve<T>(
 		qualifiedBy qualifier: Qualifier.Type? = nil
 	) throws -> T {
-		let key = Key(type: T.self, qualifier: qualifier)
+		let key = Key(type: T.self, scope: nil, qualifier: qualifier)
 		guard let provider = providers[key] else { throw Error.missingProvider }
 		guard let obj = provider() as? T else { throw Error.incorrectType } // Should never technically be possible.
+		return obj
+	}
+
+	public static func resolve<T: AnyObject>(
+		scopedTo scope: Scope.Type,
+		qualifiedBy qualifier: Qualifier.Type? = nil
+	) throws -> T {
+		let key = Key(type: T.self, scope: scope, qualifier: qualifier)
+		guard let entry = scopedEntries[key] else { throw Error.missingProvider }
+		guard let obj = entry.resolve() as? T else { throw Error.incorrectType }
 		return obj
 	}
 
 	/// Clears all registrations. Useful for testing.
 	public static func clearAllRegistrations() {
 		providers = [:]
+		scopedEntries = [:]
 	}
 }
 
@@ -55,15 +71,35 @@ private extension Resolver {
 	struct Key: Hashable {
 
 		let type: Any.Type
+		let scope: Scope.Type?
 		let qualifier: Qualifier.Type?
 
 		func hash(into hasher: inout Hasher) {
 			"\(type)".hash(into: &hasher)
+			if let scope = scope { "\(scope)".hash(into: &hasher) }
 			if let qualifier = qualifier { "\(qualifier)".hash(into: &hasher) }
 		}
 
 		static func == (lhs: Self, rhs: Self) -> Bool {
-			lhs.type == rhs.type && lhs.qualifier == rhs.qualifier
+			lhs.type == rhs.type && lhs.scope == rhs.scope && lhs.qualifier == rhs.qualifier
+		}
+	}
+
+	final class ScopedEntry {
+
+		private let resolver: () -> AnyObject
+		private weak var weaklyStoredObject: AnyObject? // The object is created if nil when accessed, and held onto weakly
+
+		init(resolver: @escaping () -> AnyObject) {
+			self.resolver = resolver
+		}
+
+		func resolve() -> AnyObject { weaklyStoredObject ?? createAndStoreObject() }
+
+		private func createAndStoreObject() -> AnyObject {
+			let resolvedObject = resolver()
+			weaklyStoredObject = resolvedObject
+			return resolvedObject
 		}
 	}
 }
