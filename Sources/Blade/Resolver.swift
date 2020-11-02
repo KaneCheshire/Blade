@@ -64,6 +64,27 @@ public class Resolver {
 		providers = [:]
 		scopedEntries = [:]
 	}
+
+	public static func clearAllRegistrations<T>(for type: T.Type) {
+		while let index = providers.first(where: { $0.key.type == type }) {
+			print("1", index, providers)
+			providers[index.key] = nil
+		}
+		while let index = scopedEntries.first(where: { $0.key.type == type }) {
+			print("2", index, providers)
+			scopedEntries[index.key] = nil
+		}
+	}
+
+	public static func clearRegistration<T>(for type: T.Type = T.self, qualifiedBy qualifier: Qualifier.Type? = nil) {
+		let key = Key(type: T.self, scope: nil, qualifier: qualifier)
+		providers[key] = nil
+	}
+
+	public static func clearRegistration<T: AnyObject>(for type: T.Type = T.self, scopedTo scope: Scope.Type, qualifiedBy qualifier: Qualifier.Type? = nil) {
+		let key = Key(type: T.self, scope: scope, qualifier: qualifier)
+		scopedEntries[key] = nil
+	}
 }
 
 private extension Resolver {

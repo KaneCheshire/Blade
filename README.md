@@ -3,10 +3,14 @@
 A super simple dependency injection library written in Swift. 
 
 - [Quick start](#quick-start)
-	- [Registering types](#registering-types)
-	- [Declaring injected properties](#declaring-injected-properties)
+	- [Registering types](#1-registering-types)
+	- [Declaring injected properties](#2-declaring-injected-properties)
 - [Scopes](#scopes)
 - [Qualifiers](#qualifiers)
+- [`@Inject`](#inject)
+- [`@LazyInject`](#lazyinject)
+- [`@WeakInject`](#weakinject)
+
 - [Good to know](#good-to-know)
 
 ## Quick start
@@ -159,6 +163,61 @@ class MyViewModel {
 }
 ```
 
+## `@Inject`
+
+Blade comes with some property wrappers to help make injection easy and tidy.
+
+The most common properry wrapper you would use is probably `@Inject`:
+
+```swift
+
+class MyViewController: UIViewController {
+
+	@Inject
+	var myInjectedProperty: MyInjectedType
+
+}
+
+```
+
+`@Inject` resolves its type when it's created, so in the example above, `MyInjectedType` is resolved during the creation of `MyViewController`.
+
+This means that you must have registered a provider before creating `MyViewController`, otherwise Blade won't be able to resolve the type, and 
+your app will crash.
+
+`@Inject` also has some other ways of creating it, so that you can use [Scopes](#scopes) and [Qualifiers](#qualifiers) with it too:
+
+```swift
+
+@Inject(MyScope.self) // Will try to resolve a type scoped to MyScope
+@Inject(MyQualifier.self) // Will try to resolve a type qualified by MyQualifier
+@Inject(MyScope.self, MyQualifier.self) // Will try to resolve a type scoped to MyScope and qualified by MyQualifier
+
+```
+
+You can also provide a closure to resolve the type if necessary:
+
+```swifft
+@Inject({
+	MyInjectedType()
+})
+
+@Inject(MyInjectedType())
+```
+
+## `@LazyInject`
+
+`@LazyInject` has the same interface as [`@Inject`](#inject), the difference between the two property wrappers is that `@LazyInject` only resolves
+when the injected property is first accessed, rather than when the containing type is created. This is the same as using `lazy var` when declaring a 
+property.
+
+## `@WeakInject`
+
+`@WeakInject` has the same interface as [`@LazyInject`](#lazyinject) and [`@Inject`](#inject) , except that it doesn't store a strong reference to the
+injected object. This is the same as using `weak var` when declaring a property, so if nothing else holds a reference to the resolved object it will
+be deallocated.
+
+
 ## Good to know
 
 Blade is very new, and very simple.
@@ -168,7 +227,7 @@ but as a result may not be suitable for large or complex projects.
 
 I'm really keen for you to use it, and let me know what problems you have or whether you think the API needs to change, or if new features are needed.
 
-Blade has no notion of modules or graphs (although it does have [Scopes](#scopes)) and [Qualifiers](#qualifiers)). If this impacts you, I'd love to learn more about the use case where
+Blade has no notion of modules or graphs (although it does have [Scopes](#scopes) and [Qualifiers](#qualifiers)). If this impacts you, I'd love to learn more about the use case where
 this is required over what Blade currently offers, and whether it's something that Blade should include or whether Blade should commit to being simple and
 only used in simple projects.
 

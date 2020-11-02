@@ -41,5 +41,5 @@ public struct LazyInject<T> {
 		lazyResolver = resolver
 	}
 
-	public lazy var wrappedValue: T = lazyResolver()
+	public lazy var wrappedValue: T = lazyResolver() as T
 }
