@@ -11,8 +11,7 @@ public class Resolver {
 		case incorrectType
 	}
 
-	private static var providers: [Key: () -> Any] = [:]
-	private static var scopedEntries: [Key: ScopedEntry] = [:]
+	private static var entries: [Key: Entry] = [:]
 
 	/// Registers a provider to provide an instance of the given type, optionally restricting to a specific qualifier.
 	/// - Parameters:
@@ -24,7 +23,11 @@ public class Resolver {
 		_ provider: @escaping () -> T
 	) {
 		let key = Key(type: T.self, scope: nil, qualifier: qualifier)
-		providers[key] = provider
+		if type is Singleton.Type {
+			entries[key] = SingletonEntry(provider: provider)
+		} else {
+			entries[key] = DefaultEntry(provider: provider)
+		}
 	}
 
 	public static func register<T: AnyObject>(
@@ -34,7 +37,11 @@ public class Resolver {
 		_ provider: @escaping () -> T
 	) {
 		let key = Key(type: type, scope: scope, qualifier: qualifier)
-		scopedEntries[key] = ScopedEntry(resolver: provider)
+		if type is Singleton.Type || scope is Global.Type {
+			entries[key] = SingletonEntry(provider: provider)
+		} else {
+			entries[key] = ScopedEntry(provider: provider)
+		}
 	}
 
 	/// Resolves the given type, throwing an error if a provider cannot be found for the type and qualifier (if a qualifier is provided).
@@ -43,47 +50,45 @@ public class Resolver {
 	public static func resolve<T>(
 		qualifiedBy qualifier: Qualifier.Type? = nil
 	) throws -> T {
-		let key = Key(type: T.self, scope: nil, qualifier: qualifier)
-		guard let provider = providers[key] else { throw Error.missingProvider }
-		guard let obj = provider() as? T else { throw Error.incorrectType } // Should never technically be possible.
-		return obj
+		try commonResolve(scopedTo: nil, qualifiedBy: qualifier)
 	}
 
 	public static func resolve<T: AnyObject>(
 		scopedTo scope: Scope.Type,
 		qualifiedBy qualifier: Qualifier.Type? = nil
 	) throws -> T {
-		let key = Key(type: T.self, scope: scope, qualifier: qualifier)
-		guard let entry = scopedEntries[key] else { throw Error.missingProvider }
-		guard let obj = entry.resolve() as? T else { throw Error.incorrectType }
-		return obj
+		try commonResolve(scopedTo: scope, qualifiedBy: qualifier)
 	}
 
 	/// Clears all registrations. Useful for testing.
 	public static func clearAllRegistrations() {
-		providers = [:]
-		scopedEntries = [:]
+		entries.removeAll()
 	}
 
 	public static func clearAllRegistrations<T>(for type: T.Type) {
-		while let index = providers.first(where: { $0.key.type == type }) {
-			print("1", index, providers)
-			providers[index.key] = nil
-		}
-		while let index = scopedEntries.first(where: { $0.key.type == type }) {
-			print("2", index, providers)
-			scopedEntries[index.key] = nil
-		}
+		while let index = entries.first(where: { $0.key.type == type }) { entries[index.key] = nil }
+	}
+
+	public static func clearAllRegistrations(scopedTo scope: Scope.Type) {
+		while let index = entries.first(where: { $0.key.scope == scope }) { entries[index.key] = nil }
+	}
+
+	public static func clearAllRegistrations(qualifiedBy qualifier: Qualifier.Type) {
+		while let index = entries.first(where: { $0.key.qualifier == qualifier }) { entries[index.key] = nil }
+	}
+
+	public static func clearAllRegistrations(scopedTo scope: Scope.Type, qualifiedBy qualifier: Qualifier.Type) {
+		while let index = entries.first(where: { $0.key.scope == scope && $0.key.qualifier == qualifier }) { entries[index.key] = nil }
 	}
 
 	public static func clearRegistration<T>(for type: T.Type = T.self, qualifiedBy qualifier: Qualifier.Type? = nil) {
 		let key = Key(type: T.self, scope: nil, qualifier: qualifier)
-		providers[key] = nil
+		entries[key] = nil
 	}
 
 	public static func clearRegistration<T: AnyObject>(for type: T.Type = T.self, scopedTo scope: Scope.Type, qualifiedBy qualifier: Qualifier.Type? = nil) {
 		let key = Key(type: T.self, scope: scope, qualifier: qualifier)
-		scopedEntries[key] = nil
+		entries[key] = nil
 	}
 }
 
@@ -106,21 +111,65 @@ private extension Resolver {
 		}
 	}
 
-	final class ScopedEntry {
+	struct DefaultEntry: Entry {
 
-		private let resolver: () -> AnyObject
-		private weak var weaklyStoredObject: AnyObject? // The object is created if nil when accessed, and held onto weakly
+		private let provider: () -> Any
 
-		init(resolver: @escaping () -> AnyObject) {
-			self.resolver = resolver
+		init(provider: @escaping () -> Any) {
+			self.provider = provider
 		}
 
-		func resolve() -> AnyObject { weaklyStoredObject ?? createAndStoreObject() }
+		func resolve() -> Any { provider() }
+	}
+
+	final class ScopedEntry: Entry {
+
+		private let provider: () -> AnyObject
+		private weak var weaklyStoredObject: AnyObject? // The object is created if nil when accessed, and held onto weakly
+
+		init(provider: @escaping () -> AnyObject) {
+			self.provider = provider
+		}
+
+		func resolve() -> Any { weaklyStoredObject ?? createAndStoreObject() }
 
 		private func createAndStoreObject() -> AnyObject {
-			let resolvedObject = resolver()
+			let resolvedObject = provider()
 			weaklyStoredObject = resolvedObject
 			return resolvedObject
 		}
 	}
+
+	final class SingletonEntry: Entry {
+
+		private let provider: () -> Any
+		private var storedObject: Any?
+
+		init(provider: @escaping () -> Any) {
+			self.provider = provider
+		}
+
+		func resolve() -> Any { storedObject ?? createAndStoreObject() }
+
+		private func createAndStoreObject() -> Any {
+			let resolvedObject = provider()
+			storedObject = resolvedObject
+			return resolvedObject
+		}
+	}
+
+	private static func commonResolve<T>(
+		scopedTo scope: Scope.Type?,
+		qualifiedBy qualifier: Qualifier.Type?
+	) throws -> T {
+		let key = Key(type: T.self, scope: scope, qualifier: qualifier)
+		guard let entry = entries[key] else { throw Error.missingProvider }
+		guard let obj = entry.resolve() as? T else { throw Error.incorrectType }
+		return obj
+	}
+}
+
+private protocol Entry {
+
+	func resolve() -> Any
 }
